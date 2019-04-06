@@ -21,6 +21,9 @@ tokens(program, start, tokens) :-
 .decl is_whitespace(x:symbol)
 is_whitespace(" ").
 
+.decl is_digit(x:symbol)
+.input is_digit()
+
 .decl next_token(program:symbol, start:number, token:symbol, end:number)
 next_token(program, start, token, end) :-
     input_program(program),
@@ -29,12 +32,34 @@ next_token(program, start, token, end) :-
         (start = strlen(program), token = "EOF", end = start + 1);
         (start != strlen(program), is_valid_index(program, end),
             (
-                (end = start + 5, "print" = substr(program, start, 5), token = "PRINT");
-                (end = start + 1, "+" = substr(program, start, 1), token = "PLUS");
-                (end = start + 1, "(" = substr(program, start, 1), token = "LPAREN");
-                (end = start + 1, ")" = substr(program, start, 1), token = "RPAREN");
-                (end = start + 1, is_whitespace(substr(program, start, 1)), token = "SPACE");
-                (end = start + 1, x = substr(program, start, 1), x != "+", x != "(", x != ")", !is_whitespace(x), substr(program, start, 5) != "print", token = "ERROR")
+                ("print" = substr(program, start, 5), token = "PRINT", end = start + 5);
+                ("print" != substr(program, start, 5), next_char = substr(program, start, 1), end = start + 1,
+                    (
+                        (next_char = "+", token = "PLUS", end = start + 1);
+                        (next_char = "-", token = "MINUS", end = start + 1);
+                        (next_char = "/", token = "SLASH", end = start + 1);
+                        (next_char = "*", token = "STAR", end = start + 1);
+                        (next_char = "(", token = "LPAREN", end = start + 1);
+                        (next_char = ")", token = "RPAREN", end = start + 1);
+                        (is_whitespace(next_char), token = "SPACE", end = start + 1);
+                        (next_char != "+", next_char != "-", next_char != "/", next_char != "*", next_char != "(", next_char != ")", !is_whitespace(next_char), !is_digit(next_char), token = "ERROR", end = start + 1)
+                    )
+                );
+                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, start, end), token = "NUMBER")
+            )
+        )
+    ).
+
+.decl next_number(program:symbol, start:number, end:number)
+next_number(program, start, end) :-
+    input_program(program),
+    is_valid_index(program, start),
+    (
+        (start = strlen(program), end = start);
+        (start != strlen(program), next_char = substr(program, start, 1),
+            (
+                (is_digit(next_char), next_number(program, start+1, end));
+                (!is_digit(next_char), start = end)
             )
         )
     ).
