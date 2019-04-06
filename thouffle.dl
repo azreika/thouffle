@@ -3,23 +3,41 @@
 
 .decl is_valid_index(program:symbol, x:number)
 is_valid_index(program, 0) :- input_program(program).
-is_valid_index(program, x+1) :- is_valid_index(program, x), x + 1 < strlen(program).
+is_valid_index(program, x+1) :- is_valid_index(program, x), x < strlen(program).
 
 // -- scanner --
 .decl tokens(program:symbol, start:number, tokens:TokenStream)
 tokens(program, strlen(program), nil) :- input_program(program).
-tokens(program, start, [token, rest]) :-
+tokens(program, start, tokens) :-
     input_program(program),
     is_valid_index(program, start),
     next_token(program, start, token, end),
+    (
+        (token = "SPACE", tokens = rest);
+        (token != "SPACE", tokens = [token, rest])
+    ),
     tokens(program, end, rest).
+
+.decl is_whitespace(x:symbol)
+is_whitespace(" ").
 
 .decl next_token(program:symbol, start:number, token:symbol, end:number)
 next_token(program, start, token, end) :-
     input_program(program),
     is_valid_index(program, start),
-    token = substr(program, start, 1),
-    end = start + 1.
+    (
+        (start = strlen(program), token = "EOF", end = start + 1);
+        (start != strlen(program), is_valid_index(program, end),
+            (
+                (end = start + 5, "print" = substr(program, start, 5), token = "PRINT");
+                (end = start + 1, "+" = substr(program, start, 1), token = "PLUS");
+                (end = start + 1, "(" = substr(program, start, 1), token = "LPAREN");
+                (end = start + 1, ")" = substr(program, start, 1), token = "RPAREN");
+                (end = start + 1, is_whitespace(substr(program, start, 1)), token = "SPACE");
+                (end = start + 1, x = substr(program, start, 1), x != "+", x != "(", x != ")", !is_whitespace(x), substr(program, start, 5) != "print", token = "ERROR")
+            )
+        )
+    ).
 
 // -- scanner --
 // .decl tokens(program:symbol, tokens:TokenStream)
