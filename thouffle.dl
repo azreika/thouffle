@@ -1,38 +1,49 @@
 .type TokenStream = [first: symbol, rest: TokenStream]
 
-
-.decl is_valid_index(program:symbol, x:number)
-is_valid_index(program, 0) :- input_program(program).
-is_valid_index(program, x+1) :- is_valid_index(program, x), x < strlen(program).
-
 // -- scanner --
+
+/**
+ * tokens(program, start, tokens) is true iff:
+ *  - @program is an input program,
+ *  - @start is a valid index in the program
+ *  - @tokens is the stream of tokens starting from @start
+ */
 .decl tokens(program:symbol, start:number, tokens:TokenStream)
-tokens(program, strlen(program), nil) :- input_program(program).
+
+tokens(program, strlen(program), ["EOF", nil]) :- input_program(program). // EOF if we are at the end of the program
 tokens(program, start, tokens) :-
+    start != strlen(program),
     input_program(program),
     is_valid_index(program, start),
     next_token(program, start, token, end),
     (
-        (token = "SPACE", tokens = rest);
-        (token != "SPACE", tokens = [token, rest])
+        (token = "SPACE", tokens = rest);           // ignore whitespace tokens
+        (token != "SPACE", tokens = [token, rest])  // the token read is the start of the current stream
     ),
     tokens(program, end, rest).
 
-.decl is_whitespace(x:symbol)
-is_whitespace(" ").
-
-.decl is_digit(x:symbol)
-.input is_digit()
-
+/**
+ * next_token(program, start, token, end) is true iff:
+ *  - @program is an input program
+ *  - @start is a valid index in the program
+ *  - @token is the next token in the stream
+ *  - @end is the index of the program right after the current token is read
+ */
 .decl next_token(program:symbol, start:number, token:symbol, end:number)
 next_token(program, start, token, end) :-
     input_program(program),
     is_valid_index(program, start),
     (
-        (start = strlen(program), token = "EOF", end = start + 1);
-        (start != strlen(program), is_valid_index(program, end),
+        (start = strlen(program), token = "EOF", end = start + 1);      // handle EOF
+        (start != strlen(program), is_valid_index(program, end),        // otherwise, end is a valid index
             (
+                // handle print
                 ("print" = substr(program, start, 5), token = "PRINT", end = start + 5);
+
+                // handle numbers
+                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, start, end), token = "NUMBER");
+
+                // handle single-character tokens
                 ("print" != substr(program, start, 5), next_char = substr(program, start, 1), end = start + 1,
                     (
                         (next_char = "+", token = "PLUS", end = start + 1);
@@ -42,60 +53,69 @@ next_token(program, start, token, end) :-
                         (next_char = "(", token = "LPAREN", end = start + 1);
                         (next_char = ")", token = "RPAREN", end = start + 1);
                         (is_whitespace(next_char), token = "SPACE", end = start + 1);
+
+                        // error - nothing matches
                         (next_char != "+", next_char != "-", next_char != "/", next_char != "*", next_char != "(", next_char != ")", !is_whitespace(next_char), !is_digit(next_char), token = "ERROR", end = start + 1)
                     )
-                );
-                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, start, end), token = "NUMBER")
+                )
             )
         )
     ).
 
+/**
+ * next_number(program, start, end) is true iff:
+ *  - @program is an input program
+ *  - @start is a valid index in the program
+ *  - @end is the index just after the current number is read
+ */
 .decl next_number(program:symbol, start:number, end:number)
 next_number(program, start, end) :-
     input_program(program),
     is_valid_index(program, start),
     (
+        // reached the end of the program
         (start = strlen(program), end = start);
+
+        // still within the program
         (start != strlen(program), next_char = substr(program, start, 1),
             (
+                // still in the number!
                 (is_digit(next_char), next_number(program, start+1, end));
+
+                // number has finished
                 (!is_digit(next_char), start = end)
             )
         )
     ).
 
-// -- scanner --
-// .decl tokens(program:symbol, tokens:TokenStream)
-// tokens("", nil).
-// tokens(program, [token, rest]) :-
-//     input_program(program),
-//     next_token(program, token, remaining_input),
-//     tokens(remaining_input, rest).
-// 
-// .decl is_digit(x:symbol)
-// .input is_digit()
-// 
-// .decl is_numeric(x:symbol)
-// is_numeric(str) :- possible_string(x), strlen(str) = 1, is_digit(str).
-// is_numeric(str) :- first = substr(str, 0, 1), is_digit(first), is_numeric(substr(str,1,strlen(str)-1)).
-// 
-// .decl match_token(x:symbol, y:symbol)
-// match_token("(", "LPAREN").
-// match_token(")", "RPAREN").
-// match_token(str, "NUMBER") :- is_numeric(str), str != "".
-// 
-// .decl next_token(program:symbol, token:symbol, new_program:symbol)
-// next_token(program, token, rest) :-
-//     next_piece(program, str, rest),
-//     match_token(str,token).
-// 
 // -- helpers --
-// .decl tokens_to_symbol(tokens:TokenStream, rep:symbol)
-// tokens_to_symbol(nil, "").
-// tokens_to_symbol([first, rest], cat(first, cat("...", rest_rep))) :-
-//     token(first),
-//     tokens_to_symbol(rest, rest_rep).
 
+/**
+ * is_valid_index(program, idx) is true iff:
+ *  - @program is an input program
+ *  - @idx is between 0 and strlen(program), inclusive
+ */
+.decl is_valid_index(program:symbol, idx:number)
+is_valid_index(program, 0) :- input_program(program).
+is_valid_index(program, x+1) :- is_valid_index(program, x), x < strlen(program).
+
+/**
+ * is_whitespace(x) is true iff x is a whitespace character
+ */
+.decl is_whitespace(x:symbol)
+is_whitespace(" ").
+
+/**
+ * is_whitespace(x) is true iff x is a digit
+ */
+.decl is_digit(x:symbol)
+.input is_digit()
+
+/**
+ * ts_to_string(tokens, rep) is true iff:
+ *  - @tokens is a stream of tokens
+ *  - @rep is the string representation of tokens
+ */
 .decl ts_to_string(tokens:TokenStream, rep:symbol)
 ts_to_string(nil, "").
 ts_to_string([token, rest], cat(token, cat(".", rest_rep))) :- tokens(_, _, [token,rest]), ts_to_string(rest, rest_rep).
