@@ -1,3 +1,67 @@
-.decl result(x:symbol)
-result("hello").
+.type TokenStream = [first: symbol, rest: TokenStream]
+
+
+.decl is_valid_index(program:symbol, x:number)
+is_valid_index(program, 0) :- input_program(program).
+is_valid_index(program, x+1) :- is_valid_index(program, x), x + 1 < strlen(program).
+
+// -- scanner --
+.decl tokens(program:symbol, start:number, tokens:TokenStream)
+tokens(program, strlen(program), nil) :- input_program(program).
+tokens(program, start, [token, rest]) :-
+    input_program(program),
+    is_valid_index(program, start),
+    next_token(program, start, token, end),
+    tokens(program, end, rest).
+
+.decl next_token(program:symbol, start:number, token:symbol, end:number)
+next_token(program, start, token, end) :-
+    input_program(program),
+    is_valid_index(program, start),
+    token = substr(program, start, 1),
+    end = start + 1.
+
+// -- scanner --
+// .decl tokens(program:symbol, tokens:TokenStream)
+// tokens("", nil).
+// tokens(program, [token, rest]) :-
+//     input_program(program),
+//     next_token(program, token, remaining_input),
+//     tokens(remaining_input, rest).
+// 
+// .decl is_digit(x:symbol)
+// .input is_digit()
+// 
+// .decl is_numeric(x:symbol)
+// is_numeric(str) :- possible_string(x), strlen(str) = 1, is_digit(str).
+// is_numeric(str) :- first = substr(str, 0, 1), is_digit(first), is_numeric(substr(str,1,strlen(str)-1)).
+// 
+// .decl match_token(x:symbol, y:symbol)
+// match_token("(", "LPAREN").
+// match_token(")", "RPAREN").
+// match_token(str, "NUMBER") :- is_numeric(str), str != "".
+// 
+// .decl next_token(program:symbol, token:symbol, new_program:symbol)
+// next_token(program, token, rest) :-
+//     next_piece(program, str, rest),
+//     match_token(str,token).
+// 
+// -- helpers --
+// .decl tokens_to_symbol(tokens:TokenStream, rep:symbol)
+// tokens_to_symbol(nil, "").
+// tokens_to_symbol([first, rest], cat(first, cat("...", rest_rep))) :-
+//     token(first),
+//     tokens_to_symbol(rest, rest_rep).
+
+.decl ts_to_string(tokens:TokenStream, rep:symbol)
+ts_to_string(nil, "").
+ts_to_string([token, rest], cat(token, cat(".", rest_rep))) :- tokens(_, _, [token,rest]), ts_to_string(rest, rest_rep).
+
+// -- input --
+.decl input_program(x:symbol)
+.input input_program()
+
+// -- output --
+.decl result(out:symbol)
+result(result) :- input_program(program), tokens(program, 0, ts), ts_to_string(ts, result).
 .output result()
