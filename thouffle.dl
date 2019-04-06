@@ -1,0 +1,3 @@
+.decl result(x:symbol)
+result("hello").
+.output result()
