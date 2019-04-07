@@ -1,4 +1,5 @@
-.type TokenStream = [first: symbol, rest: TokenStream]
+.type TokenStream = [first: Token, rest: TokenStream]
+.symbol_type Token
 
 // TODO: better types, including tokens having associated literals
 
@@ -31,7 +32,7 @@ tokens(program, start, tokens) :-
  *  - @token is the next token in the stream
  *  - @end is the index of the program right after the current token is read
  */
-.decl next_token(program:symbol, start:number, token:symbol, end:number)
+.decl next_token(program:symbol, start:number, token:Token, end:number)
 next_token(program, start, token, end) :-
     input_program(program),
     is_valid_index(program, start),
@@ -43,7 +44,8 @@ next_token(program, start, token, end) :-
                 ("print" = substr(program, start, 5), token = "PRINT", end = start + 5);
 
                 // handle numbers
-                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, next_num, start, end), token = cat("NUMBER(", cat(next_num, ")")));
+                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, next_num, start, end),
+                    token = cat("NUMBER(", cat(next_num, ")")));
 
                 // handle single-character tokens
                 ("print" != substr(program, start, 5), next_char = substr(program, start, 1), end = start + 1,
@@ -57,7 +59,9 @@ next_token(program, start, token, end) :-
                         (is_whitespace(next_char), token = "SPACE", end = start + 1);
 
                         // error - nothing matches
-                        (next_char != "+", next_char != "-", next_char != "/", next_char != "*", next_char != "(", next_char != ")", !is_whitespace(next_char), !is_digit(next_char), token = "ERROR", end = start + 1)
+                        (next_char != "+", next_char != "-", next_char != "/", next_char != "*", next_char != "(", next_char != ")",
+                            !is_whitespace(next_char), !is_digit(next_char),
+                            token = "ERROR", end = start + 1)
                     )
                 )
             )
@@ -67,6 +71,7 @@ next_token(program, start, token, end) :-
 /**
  * next_number(program, start, end) is true iff:
  *  - @program is an input program
+ *  - @literal is the string representation of the number read from that point
  *  - @start is a valid index in the program
  *  - @end is the index just after the current number is read
  */
@@ -91,12 +96,24 @@ next_number(program, literal, start, end) :-
     ).
 
 // -- parser --
+
+/**
+ * parser(program, cpp) is true iff:
+ *  - @program is an input program
+ *  - @cpp is the C++ program that generates the output
+ */
 .decl parser(program:symbol, cpp:symbol)
 parser(program, cpp) :-
     input_program(program),
     tokens(program, 0, ts),
     parse_program(ts, _, cpp).
 
+/**
+ * parse_program(ts, rest, cpp) is true iff:
+ *  - @ts is a stream of tokens
+ *  - @rest is the stream of tokens after a program has been parsed
+ *  - @cpp is the C++ program generated from the parsed program
+ */
 .decl parse_program(ts:TokenStream, rest:TokenStream, cpp:symbol)
 parse_program(ts, rest, cpp) :-
     parse_expression(ts, rest, cpp_expr),
@@ -104,21 +121,37 @@ parse_program(ts, rest, cpp) :-
     cpp_tail = "}",
     cpp = cat(cpp_head, cat(cpp_expr, cpp_tail)).
 
+// TODO: error handling for the parser
+
+/**
+ * parse_expression(ts, rest, cpp) is true iff:
+ *  - @ts is a stream of tokens
+ *  - @rest is the stream of tokens after an expression has been parsed
+ *  - @cpp is the C++ program generated from the parsed expression
+ */
 .decl parse_expression(ts:TokenStream, rest:TokenStream, cpp:symbol)
 parse_expression(ts, rest, cpp) :-
     tokens(_, _, rest),
     tokens(_, _, ts),
     (
-        (ts = ["LPAREN", ["PRINT", tail]], parse_expression(tail, ["RPAREN", rest], cpp_rest), cpp = cat("std::cout << ", cat(cpp_rest, " << std::endl;")));
-        (ts = [token, rest], "NUMBER" = substr(token, 0, 6), number = substr(token, 7, strlen(token)-8),  cpp = cat("(", cat(number, ")")));
+        // empty token stream
         (ts = nil, rest = nil, cpp = "");
+
+        // number
+        (ts = [token, rest], "NUMBER" = substr(token, 0, 6), number = substr(token, 7, strlen(token)-8),  cpp = cat("(", cat(number, ")")));
+
+        // (OP ... ...)
         (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, rest, cpp_second), cpp = cat("(", cat(cpp_first, cat(nop, cpp_second)), ")" ),
-        (
-            (op = "PLUS", nop = "+");
-            (op = "MINUS", nop = "-");
-            (op = "STAR", nop = "*");
-            (op = "SLASH", nop = "/")
-        ))
+            (
+                (op = "PLUS", nop = "+");
+                (op = "MINUS", nop = "-");
+                (op = "STAR", nop = "*");
+                (op = "SLASH", nop = "/")
+            )
+        );
+
+        // print function
+        (ts = ["LPAREN", ["PRINT", tail]], parse_expression(tail, ["RPAREN", rest], cpp_rest), cpp = cat("std::cout << ", cat(cpp_rest, " << std::endl;")))
     ).
 
 // -- helpers --
