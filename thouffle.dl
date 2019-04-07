@@ -41,7 +41,7 @@ next_token(program, start, token, end) :-
                 ("print" = substr(program, start, 5), token = "PRINT", end = start + 5);
 
                 // handle numbers
-                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, start, end), token = "NUMBER");
+                (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, _, start, end), token = "NUMBER");
 
                 // handle single-character tokens
                 ("print" != substr(program, start, 5), next_char = substr(program, start, 1), end = start + 1,
@@ -68,22 +68,22 @@ next_token(program, start, token, end) :-
  *  - @start is a valid index in the program
  *  - @end is the index just after the current number is read
  */
-.decl next_number(program:symbol, start:number, end:number)
-next_number(program, start, end) :-
+.decl next_number(program:symbol, literal:symbol, start:number, end:number)
+next_number(program, literal, start, end) :-
     input_program(program),
     is_valid_index(program, start),
     (
         // reached the end of the program
-        (start = strlen(program), end = start);
+        (start = strlen(program), end = start, literal = "");
 
         // still within the program
         (start != strlen(program), next_char = substr(program, start, 1),
             (
                 // still in the number!
-                (is_digit(next_char), next_number(program, start+1, end));
+                (is_digit(next_char), next_number(program, next_num, start+1, end), literal = cat(next_char, next_num));
 
                 // number has finished
-                (!is_digit(next_char), start = end)
+                (!is_digit(next_char), start = end, literal="")
             )
         )
     ).
