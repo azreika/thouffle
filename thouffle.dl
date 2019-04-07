@@ -137,7 +137,11 @@ is_whitespace(" ").
  * is_whitespace(x) is true iff x is a digit
  */
 .decl is_digit(x:symbol)
-.input is_digit()
+is_digit("0"). is_digit("1").
+is_digit("2"). is_digit("3").
+is_digit("4"). is_digit("5").
+is_digit("6"). is_digit("7").
+is_digit("8"). is_digit("9").
 
 /**
  * ts_to_string(tokens, rep) is true iff:
