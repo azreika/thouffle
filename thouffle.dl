@@ -88,6 +88,34 @@ next_number(program, start, end) :-
         )
     ).
 
+// -- parser --
+.decl parser(program:symbol, cpp:symbol)
+parser(program, cpp) :-
+    input_program(program),
+    tokens(program, 0, ts),
+    parse_program(ts, _, cpp).
+
+.decl parse_program(ts:TokenStream, rest:TokenStream, cpp:symbol)
+parse_program(ts, rest, cpp) :-
+    parse_expression(ts, rest, cpp).
+
+.decl parse_expression(ts:TokenStream, rest:TokenStream, cpp:symbol)
+parse_expression(ts, rest, cpp) :-
+    tokens(_, _, rest),
+    tokens(_, _, ts),
+    (
+        (ts = ["LPAREN", ["PRINT", tail]], parse_expression(tail, ["RPAREN", rest], cpp_rest), cpp = cat("std::cout << ", cat(cpp_rest, " << std::endl;")));
+        (ts = ["NUMBER", rest], cpp = "(X)");
+        (ts = nil, rest = nil, cpp = "");
+        (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, rest, cpp_second), cpp = cat("(", cat(cpp_first, cat(nop, cpp_second)), ")" ),
+        (
+            (op = "PLUS", nop = "+");
+            (op = "MINUS", nop = "-");
+            (op = "STAR", nop = "*");
+            (op = "SLASH", nop = "/")
+        ))
+    ).
+
 // -- helpers --
 
 /**
@@ -118,13 +146,17 @@ is_whitespace(" ").
  */
 .decl ts_to_string(tokens:TokenStream, rep:symbol)
 ts_to_string(nil, "").
-ts_to_string([token, rest], cat(token, cat(".", rest_rep))) :- tokens(_, _, [token,rest]), ts_to_string(rest, rest_rep).
+ts_to_string([token, rest], cat(token, cat(".", rest_rep))) :-
+    tokens(_, _, [token,rest]),
+    ts_to_string(rest, rest_rep).
 
 // -- input --
-.decl input_program(x:symbol)
+.decl input_program(program:symbol)
 .input input_program()
 
 // -- output --
-.decl result(out:symbol)
-result(result) :- input_program(program), tokens(program, 0, ts), ts_to_string(ts, result).
-.output result()
+.decl tokenizer(program:symbol, stream:symbol)
+tokenizer(program, stream) :- input_program(program), tokens(program, 0, ts), ts_to_string(ts, stream).
+.output input_program()
+.output tokenizer()
+.output parser()
