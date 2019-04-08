@@ -108,6 +108,8 @@ parser(program, cpp) :-
     tokens(program, 0, ts),
     parse_program(ts, _, cpp).
 
+// TODO: change to [program -> (expression)*] (instead of program -> expression)
+
 /**
  * parse_program(ts, rest, cpp) is true iff:
  *  - @ts is a stream of tokens
@@ -115,8 +117,8 @@ parser(program, cpp) :-
  *  - @cpp is the C++ program generated from the parsed program
  */
 .decl parse_program(ts:TokenStream, rest:TokenStream, cpp:symbol)
-parse_program(ts, rest, cpp) :-
-    parse_expression(ts, rest, cpp_expr),
+parse_program(ts, nil, cpp) :-
+    parse_expression(ts, ["EOF", nil], cpp_expr),
     cpp_head = "#include <iostream>\n int main(void) {",
     cpp_tail = "}",
     cpp = cat(cpp_head, cat(cpp_expr, cpp_tail)).
@@ -141,7 +143,7 @@ parse_expression(ts, rest, cpp) :-
         (ts = [token, rest], "NUMBER" = substr(token, 0, 6), number = substr(token, 7, strlen(token)-8),  cpp = cat("(", cat(number, ")")));
 
         // (OP ... ...)
-        (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, rest, cpp_second), cpp = cat("(", cat(cpp_first, cat(nop, cpp_second)), ")" ),
+        (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, ["RPAREN", rest], cpp_second), cpp = cat("(", cat(cpp_first, cat(nop, cpp_second)), ")" ),
             (
                 (op = "PLUS", nop = "+");
                 (op = "MINUS", nop = "-");
@@ -197,8 +199,12 @@ ts_to_string([token, rest], cat(token, cat(".", rest_rep))) :-
 .input input_program()
 
 // -- output --
-.decl tokenizer(program:symbol, stream:symbol)
-tokenizer(program, stream) :- input_program(program), tokens(program, 0, ts), ts_to_string(ts, stream).
+.decl tokenizer_out(out:symbol)
+tokenizer_out(out) :- input_program(program), tokens(program, 0, ts), ts_to_string(ts, stream), out = cat("INPUT: [ ", cat(program, cat(" ], OUTPUT: [ ", cat(stream, " ]")))).
+
+.decl parser_out(out:symbol)
+parser_out(out) :- parser(program, cpp), out = cat("INPUT: [ ", cat(program, cat(" ], OUTPUT: [ ", cat(cpp, " ]")))).
+
 .output input_program()
-.output tokenizer()
-.output parser()
+.output tokenizer_out()
+.output parser_out()
