@@ -45,7 +45,7 @@ next_token(program, start, token, end) :-
 
                 // handle numbers
                 (next_char = substr(program, start, 1), is_digit(next_char), next_number(program, next_num, start, end),
-                    token = cat("NUMBER(", cat(next_num, ")")));
+                    token = cat("NUMBER(", next_num, ")"));
 
                 // handle single-character tokens
                 ("print" != substr(program, start, 5), next_char = substr(program, start, 1), end = start + 1,
@@ -121,7 +121,7 @@ parse_program(ts, nil, cpp) :-
     parse_expression(ts, ["EOF", nil], cpp_expr),
     cpp_head = "#include <iostream>\n int main(void) {",
     cpp_tail = "}",
-    cpp = cat(cpp_head, cat(cpp_expr, cpp_tail)).
+    cpp = cat(cpp_head, cpp_expr, cpp_tail).
 
 // TODO: error handling for the parser
 
@@ -140,10 +140,10 @@ parse_expression(ts, rest, cpp) :-
         (ts = nil, rest = nil, cpp = "");
 
         // number
-        (ts = [token, rest], "NUMBER" = substr(token, 0, 6), number = substr(token, 7, strlen(token)-8),  cpp = cat("(", cat(number, ")")));
+        (ts = [token, rest], "NUMBER" = substr(token, 0, 6), number = substr(token, 7, strlen(token)-8),  cpp = cat("(", number, ")"));
 
         // (OP ... ...)
-        (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, ["RPAREN", rest], cpp_second), cpp = cat("(", cat(cpp_first, cat(nop, cpp_second)), ")" ),
+        (ts = ["LPAREN", [op, tail]], parse_expression(tail, first, cpp_first), parse_expression(first, ["RPAREN", rest], cpp_second), cpp = cat("(", cpp_first, nop, cpp_second, ")"),
             (
                 (op = "PLUS", nop = "+");
                 (op = "MINUS", nop = "-");
@@ -153,7 +153,7 @@ parse_expression(ts, rest, cpp) :-
         );
 
         // print function
-        (ts = ["LPAREN", ["PRINT", tail]], parse_expression(tail, ["RPAREN", rest], cpp_rest), cpp = cat("std::cout << ", cat(cpp_rest, " << std::endl;")))
+        (ts = ["LPAREN", ["PRINT", tail]], parse_expression(tail, ["RPAREN", rest], cpp_rest), cpp = cat("std::cout << ", cpp_rest, " << std::endl;"))
     ).
 
 // -- helpers --
